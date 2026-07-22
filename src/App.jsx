@@ -708,6 +708,7 @@ function ProfileProgram({worker,onUpdate}) {
     </div>)}
   </div>;
 }
+
 // ── ProfileNotes rewired for Supabase
 function ProfileNotes({worker,onUpdate}) {
   const [note,setNote]=useState("");
