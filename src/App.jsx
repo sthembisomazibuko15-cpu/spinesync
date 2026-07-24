@@ -16,32 +16,32 @@ const ASSESS_TYPES = {
     color: C.bio, icon: "🏗",
     purpose: "Determine fitness for specific job role before employment begins.",
     outcome: "Clearance decision: Fit / Fit with restrictions / Not fit for role",
-    steps: ["Intake","Job Demands","Medical History","Physical Screen","Functional Tests","Clearance Decision"],
-    stepIds: ["intake","jobdemands","history","screen","functional","clearance"],
+    steps: ["Intake","Job Demands","Medical History","Physical Screen","Functional Tests","Outcome Measures","Clearance Decision"],
+    stepIds: ["intake","jobdemands","history","screen","functional","outcomes","clearance"],
     focusAreas: ["Job-specific physical demands","Musculoskeletal baseline","Injury history relevant to role"],
   },
   "Annual Wellness": {
     color: C.warn, icon: "🌿",
     purpose: "Broad preventive health check. Catch problems before they become injuries.",
     outcome: "Wellness score + lifestyle recommendations + MSK risk tier",
-    steps: ["Intake","Wellness Screen","Lifestyle Factors","Risk Score","Recommendations"],
-    stepIds: ["intake","wellness","lifestyle","risk","rx"],
+    steps: ["Intake","Wellness Screen","Lifestyle Factors","Outcome Measures","Risk Score","Recommendations"],
+    stepIds: ["intake","wellness","lifestyle","outcomes","risk","rx"],
     focusAreas: ["General MSK health","Sleep and recovery","Stress and lifestyle"],
   },
   "Periodic Review": {
     color: C.ore, icon: "🔄",
     purpose: "Compare against previous assessment. Track changes and intervention outcomes.",
     outcome: "Progress report vs baseline + programme adjustment",
-    steps: ["Intake","Changes Since Last","Functional Tests","Comparison","Updated Plan"],
-    stepIds: ["intake","changes","functional","comparison","plan"],
+    steps: ["Intake","Changes Since Last","Functional Tests","Outcome Measures","Comparison","Updated Plan"],
+    stepIds: ["intake","changes","functional","outcomes","comparison","plan"],
     focusAreas: ["Change from baseline","Programme compliance","Intervention effectiveness"],
   },
   "Post-injury / Return to Work": {
     color: C.danger, icon: "🩺",
     purpose: "Determine if worker can safely return to specific duties after injury.",
     outcome: "RTW clearance + duty modification plan + FCE summary",
-    steps: ["Intake","Injury History","Clinical Assessment","FCE Battery","RTW Decision","Duty Plan"],
-    stepIds: ["intake","injury","clinical","fce","rtwdecision","dutyplan"],
+    steps: ["Intake","Injury History","Clinical Assessment","FCE Battery","Outcome Measures","RTW Decision","Duty Plan"],
+    stepIds: ["intake","injury","clinical","fce","outcomes","rtwdecision","dutyplan"],
     focusAreas: ["Nature and recovery of injury","Current pain and function","Safe return timeline"],
   },
 };
@@ -96,6 +96,36 @@ const RTW_INJURY = [
   { id:"rtw_pain_act", section:"Current Status", question:"Current pain level with activity", sub:"With movement or physical effort", options:[{label:"0-2 out of 10",value:0},{label:"3-4 out of 10",value:1},{label:"5-6 out of 10",value:2},{label:"7 or more",value:3}] },
   { id:"rtw_neuro",    section:"Current Status", question:"Any ongoing neurological symptoms?", sub:"Numbness, tingling, weakness in limbs", options:[{label:"None",value:0},{label:"Occasional, not worsening",value:1},{label:"Persistent, affecting function",value:2},{label:"Severe or progressive",value:3}] },
   { id:"rtw_rehab",    section:"Current Status", question:"Has the worker completed a formal rehabilitation programme?", sub:"Physio, biokineticist, or hospital programme", options:[{label:"Yes — completed and discharged",value:0},{label:"Yes — ongoing, progressing well",value:1},{label:"Partial — incomplete programme",value:2},{label:"No formal rehab",value:3}] },
+];
+
+// Oswestry-style Disability Index — 10 functional domains, each scored 0-5
+// (item wording written in-house; scoring formula matches the standard 0-100% ODI convention)
+const ODI_QUESTIONS = [
+  { id:"odi_1", section:"Disability Index", question:"Pain intensity right now", sub:"Rate your current pain level", options:[{label:"No pain at the moment",score:0},{label:"Mild pain",score:1},{label:"Moderate pain",score:2},{label:"Fairly severe pain",score:3},{label:"Very severe pain",score:4},{label:"Worst pain imaginable",score:5}] },
+  { id:"odi_2", section:"Disability Index", question:"Personal care (washing, dressing)", sub:"Ability to manage everyday self-care", options:[{label:"No difficulty at all",score:0},{label:"Manage but it's painful",score:1},{label:"Slow and careful, but independent",score:2},{label:"Need some help but manage most",score:3},{label:"Need help with most self-care",score:4},{label:"Unable to manage without full assistance",score:5}] },
+  { id:"odi_3", section:"Disability Index", question:"Lifting", sub:"Ability to lift objects from the floor or a table", options:[{label:"Lift heavy weights without extra pain",score:0},{label:"Lift heavy weights but with extra pain",score:1},{label:"Pain prevents heavy lifting, manage medium weights",score:2},{label:"Pain prevents medium weights, manage light/medium if well positioned",score:3},{label:"Can only lift very light weights",score:4},{label:"Unable to lift or carry anything",score:5}] },
+  { id:"odi_4", section:"Disability Index", question:"Walking", sub:"Distance walked before pain limits you", options:[{label:"No limit to walking distance",score:0},{label:"Pain prevents walking more than 1.5 km",score:1},{label:"Pain prevents walking more than 800 m",score:2},{label:"Pain prevents walking more than 400 m",score:3},{label:"Can only walk with a stick or crutches",score:4},{label:"In bed most of the time",score:5}] },
+  { id:"odi_5", section:"Disability Index", question:"Sitting", sub:"Tolerance for sitting", options:[{label:"Can sit in any chair as long as desired",score:0},{label:"Can only sit in a favourite chair as long as desired",score:1},{label:"Pain limits sitting to more than 1 hour",score:2},{label:"Pain limits sitting to about 30-60 minutes",score:3},{label:"Pain limits sitting to about 10 minutes",score:4},{label:"Pain prevents sitting altogether",score:5}] },
+  { id:"odi_6", section:"Disability Index", question:"Standing", sub:"Tolerance for standing", options:[{label:"Can stand as long as desired without extra pain",score:0},{label:"Extra pain when standing, but manageable",score:1},{label:"Pain prevents standing more than 1 hour",score:2},{label:"Pain prevents standing more than 30 minutes",score:3},{label:"Pain prevents standing more than 10 minutes",score:4},{label:"Pain prevents standing altogether",score:5}] },
+  { id:"odi_7", section:"Disability Index", question:"Sleeping", sub:"Effect of pain on sleep", options:[{label:"Sleep never disturbed by pain",score:0},{label:"Sleep occasionally disturbed by pain",score:1},{label:"Because of pain, sleep less than 6 hours",score:2},{label:"Because of pain, sleep less than 4 hours",score:3},{label:"Because of pain, sleep less than 2 hours",score:4},{label:"Pain prevents sleep entirely",score:5}] },
+  { id:"odi_8", section:"Disability Index", question:"Social life", sub:"Effect of pain on social and recreational activities", options:[{label:"Normal social life without extra pain",score:0},{label:"Normal social life, but increases pain",score:1},{label:"Pain limits energetic activities only (sport, etc.)",score:2},{label:"Pain restricts social life, don't go out as often",score:3},{label:"Pain has restricted social life to home",score:4},{label:"No social life because of pain",score:5}] },
+  { id:"odi_9", section:"Disability Index", question:"Travelling", sub:"Effect of pain when travelling", options:[{label:"Can travel anywhere without extra pain",score:0},{label:"Extra pain travelling, but manages longer journeys",score:1},{label:"Extra pain limits journeys to under 2 hours",score:2},{label:"Pain limits journeys to under 1 hour",score:3},{label:"Pain limits necessary journeys under 30 minutes",score:4},{label:"Pain prevents travel except for treatment",score:5}] },
+  { id:"odi_10", section:"Disability Index", question:"Work / usual duties", sub:"Effect of pain on job or home duties", options:[{label:"Usual duties without causing extra pain",score:0},{label:"Usual duties, but with some extra pain",score:1},{label:"Can do most duties, but not more strenuous ones",score:2},{label:"Pain prevents doing all but light duties",score:3},{label:"Pain prevents doing even light duties",score:4},{label:"Pain prevents any usual duties at all",score:5}] },
+];
+
+// PROMIS-style Global Health snapshot — 10 items across physical and mental/social domains
+// (item wording written in-house, inspired by the PROMIS Global-10 domain structure; 1=worst, 5=best)
+const PROMIS_QUESTIONS = [
+  { id:"promis_1", section:"Global Health", question:"In general, how would you rate your physical health?", sub:"Overall physical health", options:[{label:"Poor",value:1},{label:"Fair",value:2},{label:"Good",value:3},{label:"Very good",value:4},{label:"Excellent",value:5}] },
+  { id:"promis_2", section:"Global Health", question:"In general, how would you rate your quality of life?", sub:"Overall quality of life", options:[{label:"Poor",value:1},{label:"Fair",value:2},{label:"Good",value:3},{label:"Very good",value:4},{label:"Excellent",value:5}] },
+  { id:"promis_3", section:"Global Health", question:"In general, how would you rate your mental health, including mood and ability to think?", sub:"Overall mental health", options:[{label:"Poor",value:1},{label:"Fair",value:2},{label:"Good",value:3},{label:"Very good",value:4},{label:"Excellent",value:5}] },
+  { id:"promis_4", section:"Global Health", question:"How would you rate your satisfaction with your social activities and relationships?", sub:"Overall social satisfaction", options:[{label:"Poor",value:1},{label:"Fair",value:2},{label:"Good",value:3},{label:"Very good",value:4},{label:"Excellent",value:5}] },
+  { id:"promis_5", section:"Global Health", question:"How well are you able to carry out everyday physical activities such as walking, climbing stairs, or carrying groceries?", sub:"Physical function", options:[{label:"Not at all",value:1},{label:"A little",value:2},{label:"Moderately",value:3},{label:"Mostly",value:4},{label:"Completely",value:5}] },
+  { id:"promis_6", section:"Global Health", question:"How would you rate your pain over the past week, on average?", sub:"0 = worst pain, so scored in reverse (higher = less pain)", options:[{label:"Very severe pain",value:1},{label:"Severe pain",value:2},{label:"Moderate pain",value:3},{label:"Mild pain",value:4},{label:"No pain",value:5}] },
+  { id:"promis_7", section:"Global Health", question:"How would you rate your fatigue over the past week, on average?", sub:"Higher = less fatigue", options:[{label:"Very severe fatigue",value:1},{label:"Severe fatigue",value:2},{label:"Moderate fatigue",value:3},{label:"Mild fatigue",value:4},{label:"No fatigue",value:5}] },
+  { id:"promis_8", section:"Global Health", question:"How often have you been bothered by emotional problems such as feeling anxious, depressed, or irritable?", sub:"Higher = bothered less often", options:[{label:"Always",value:1},{label:"Often",value:2},{label:"Sometimes",value:3},{label:"Rarely",value:4},{label:"Never",value:5}] },
+  { id:"promis_9", section:"Global Health", question:"How well are you able to carry out your usual social activities and roles?", sub:"Includes work, family, community roles", options:[{label:"Not at all",value:1},{label:"A little",value:2},{label:"Moderately",value:3},{label:"Mostly",value:4},{label:"Completely",value:5}] },
+  { id:"promis_10", section:"Global Health", question:"Overall, how satisfied are you with your current physical and mental health together?", sub:"General satisfaction with health", options:[{label:"Not at all satisfied",value:1},{label:"A little satisfied",value:2},{label:"Moderately satisfied",value:3},{label:"Mostly satisfied",value:4},{label:"Completely satisfied",value:5}] },
 ];
 
 const FUNC_TESTS = [
@@ -216,6 +246,7 @@ const RISK_PROGRAMS = {
 const JOB_ROLES = ["Drill and Blast Operator","LHD Loader Driver","Stope Worker","Rock Drill Operator","Conveyor Surface Operator","Trackless Equipment Operator","Maintenance Technician","Winder Operator","Shaft Sinker","Ventilation Officer"];
 
 function getQuestions(assessType, step) {
+  if(step==="outcomes") return [...ODI_QUESTIONS, ...PROMIS_QUESTIONS];
   if(assessType==="Pre-employment") {
     if(step==="jobdemands") return PE_JOB_DEMANDS;
     if(step==="history") return PE_HISTORY;
@@ -255,6 +286,33 @@ function calcRisk(scores, assessType) {
     "Post-injury / Return to Work":{LOW:"Safe to return to full duties. Continue home programme. 4-week follow-up.",MOD:"Safe to return with modified duties. Graduated return plan. 2-week review.",HIGH:"Not yet ready for full duties. Continue rehab. Formal FCE in 4 weeks.",CRIT:"Not fit to return. Specialist referral. Medical clearance required."},
   };
   return {tier,pct,color:cols[tier],label:lbls[tier],action:(acts[assessType]||acts["Annual Wellness"])[tier],total,max};
+}
+
+function calcODI(scores) {
+  const ids=["odi_1","odi_2","odi_3","odi_4","odi_5","odi_6","odi_7","odi_8","odi_9","odi_10"];
+  const vals=ids.map(id=>scores[id]).filter(v=>typeof v==="number");
+  if(vals.length<ids.length) return null;
+  const total=vals.reduce((a,b)=>a+b,0);
+  const pct=Math.round((total/50)*100);
+  let label,color,detail;
+  if(pct<=20){label="Minimal Disability";color=C.bio;detail="Worker can cope with most activities of daily living. Usually no treatment indicated beyond advice on lifting, sitting, and posture.";}
+  else if(pct<=40){label="Moderate Disability";color=C.warn;detail="More pain and difficulty with sitting, lifting, and standing. Travel and social life are more difficult. Conservative treatment is likely appropriate.";}
+  else if(pct<=60){label="Severe Disability";color=C.ore;detail="Pain remains the main problem, but daily activities are also significantly affected. Detailed clinical evaluation recommended.";}
+  else if(pct<=80){label="Crippled";color=C.danger;detail="Back or neck pain impinges on all aspects of daily life. Positive intervention required.";}
+  else{label="Bed-bound / Review Validity";color=C.danger;detail="A score this high should prompt a careful review of symptom validity alongside clinical findings.";}
+  return {total,max:50,pct,label,color,detail};
+}
+
+function calcPROMISGlobal(scores) {
+  const physIds=["promis_1","promis_5","promis_6","promis_7"];
+  const mentIds=["promis_2","promis_3","promis_4","promis_8"];
+  const allIds=[...physIds,...mentIds,"promis_9","promis_10"];
+  const present=allIds.filter(id=>typeof scores[id]==="number");
+  if(present.length<allIds.length) return null;
+  const physRaw=physIds.reduce((a,id)=>a+scores[id],0);
+  const mentRaw=mentIds.reduce((a,id)=>a+scores[id],0);
+  const band=v=>v<=8?"Well Below Average":v<=12?"Below Average":v<=16?"Average":"Above Average";
+  return {physRaw,mentRaw,physLabel:band(physRaw),mentLabel:band(mentRaw)};
 }
 
 function buildRx(scores, assessType, risk) {
@@ -357,6 +415,7 @@ function AssessFlow({onSave,savedId}) {
   const [idx,setIdx]=useState(0);
   const [intake,setIntake]=useState({name:"",empId:"",role:"",age:"",yearsInRole:"",assessType:"",notes:""});
   const [scores,setScores]=useState({});
+  const [outcomeScores,setOutcomeScores]=useState({});
   const ref=useRef(null);
   const scroll=()=>ref.current&&ref.current.scrollIntoView({behavior:"smooth"});
 
@@ -374,7 +433,7 @@ function AssessFlow({onSave,savedId}) {
 
   const isResult=["clearance","risk","comparison","rtwdecision"].includes(cur);
   const isFinal=["rx","plan","dutyplan"].includes(cur);
-  const isQ=cur&&cur!=="intake"&&!isResult&&!isFinal&&qs.length>0;
+  const isQ=cur&&cur!=="intake"&&cur!=="outcomes"&&!isResult&&!isFinal&&qs.length>0;
 
   return <div ref={ref}>
     {tc&&<div style={{background:tc_color+"18",border:"1px solid "+tc_color+"33",padding:"0.7rem 1rem",marginBottom:"1.2rem",display:"flex",alignItems:"center",gap:"0.8rem",flexWrap:"wrap"}}>
@@ -438,6 +497,42 @@ function AssessFlow({onSave,savedId}) {
         </div>
       </Card>
       <div style={{display:"flex",justifyContent:"space-between"}}><Btn onClick={back} v="ghost">Back</Btn><Btn onClick={next} disabled={!allOk}>Next</Btn></div>
+    </div>}
+
+    {cur==="outcomes"&&<div>
+      <Ey c={tc_color}>Step {idx+1} — Standardized Outcome Measures</Ey>
+      <h2 style={{fontSize:"1.4rem",fontWeight:800,marginBottom:"0.3rem",color:C.day}}>Oswestry Disability Index &amp; PROMIS Global Health</h2>
+      <p style={{color:C.seam,fontSize:"0.85rem",marginBottom:"1.2rem"}}>These validated-format screening tools capture the worker's self-reported disability and general health, independent of the clinical risk score.</p>
+      <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"1.2rem"}}>
+        <Pill text={intake.name} color={tc_color}/><Pill text={intake.role} color={C.seam}/>
+      </div>
+      <h3 style={{fontSize:"1rem",fontWeight:700,color:C.day,marginBottom:"0.6rem"}}>Oswestry Disability Index</h3>
+      <QSet questions={ODI_QUESTIONS} scores={outcomeScores} setScores={setOutcomeScores}/>
+      <h3 style={{fontSize:"1rem",fontWeight:700,color:C.day,margin:"1.4rem 0 0.6rem"}}>PROMIS Global Health Snapshot</h3>
+      <QSet questions={PROMIS_QUESTIONS} scores={outcomeScores} setScores={setOutcomeScores}/>
+      {(()=>{
+        const odi=calcODI(outcomeScores);
+        const prom=calcPROMISGlobal(outcomeScores);
+        return <>
+          {odi&&<Card accent={odi.color} style={{marginTop:"1.2rem"}}>
+            <Ey c={odi.color}>Oswestry Disability Index Result</Ey>
+            <div style={{fontSize:"1.6rem",fontWeight:900,color:odi.color}}>{odi.pct}% — {odi.label}</div>
+            <div style={{fontSize:"0.82rem",color:C.day,marginTop:"0.4rem",lineHeight:1.6}}>{odi.detail}</div>
+          </Card>}
+          {prom&&<Card style={{marginTop:"0.8rem"}}>
+            <Ey c={tc_color}>PROMIS Global Health Snapshot</Ey>
+            <div style={{display:"flex",gap:"2rem",marginTop:"0.5rem",flexWrap:"wrap"}}>
+              <div><div style={{fontSize:"0.7rem",color:C.seam}}>Physical Health (4-20)</div><div style={{fontSize:"1.3rem",fontWeight:900,color:C.day}}>{prom.physRaw} — {prom.physLabel}</div></div>
+              <div><div style={{fontSize:"0.7rem",color:C.seam}}>Mental Health (4-20)</div><div style={{fontSize:"1.3rem",fontWeight:900,color:C.day}}>{prom.mentRaw} — {prom.mentLabel}</div></div>
+            </div>
+            <div style={{fontSize:"0.7rem",color:C.seam,marginTop:"0.6rem"}}>Simplified raw scoring for clinical triage purposes. For fully normed T-scores, refer to the official HealthMeasures PROMIS scoring manual.</div>
+          </Card>}
+        </>;
+      })()}
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:"1.2rem"}}>
+        <Btn onClick={back} v="ghost">Back</Btn>
+        <Btn onClick={next} disabled={Object.keys(outcomeScores).length<(ODI_QUESTIONS.length+PROMIS_QUESTIONS.length)}>Next</Btn>
+      </div>
     </div>}
 
     {cur==="clearance"&&<div>
