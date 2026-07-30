@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import Login from "./Login";
 import MineClient from "./MineClient";
+import MovementScreen from "./MovementScreen";
 import { getCurrentUser, getProfile, signOut, fetchWorkers, createWorker, updateWorker as dbUpdateWorker, saveAssessmentRecord, fetchNotes, addNote, toggleConsent } from "./lib/data";
 import { supabase } from "./lib/supabase";
 
@@ -245,6 +246,91 @@ const RISK_PROGRAMS = {
 
 const JOB_ROLES = ["Drill and Blast Operator","LHD Loader Driver","Stope Worker","Rock Drill Operator","Conveyor Surface Operator","Trackless Equipment Operator","Maintenance Technician","Winder Operator","Shaft Sinker","Ventilation Officer"];
 
+// Job Demands Library — physical demand requirements per occupation, each rated Critical / Important / Desirable
+const JOB_DEMANDS_LIBRARY = {
+  "Drill and Blast Operator": [
+    {task:"Lift explosives/charging equipment floor-to-waist",requirement:"25 kg",priority:"Critical"},
+    {task:"Carry drilling accessories",requirement:"20 kg for 30 m",priority:"Critical"},
+    {task:"Climb ladders/scaffolding to face",requirement:"Up to 20 m",priority:"Important"},
+    {task:"Repeated squatting/kneeling at low headings",requirement:"Frequent",priority:"Important"},
+    {task:"Push/pull drill rig components",requirement:"40 kg force",priority:"Critical"},
+    {task:"Sustained stooping in confined headings",requirement:"Prolonged",priority:"Important"},
+  ],
+  "LHD Loader Driver": [
+    {task:"Climb into/out of cab",requirement:"Repeated, multiple times/shift",priority:"Critical"},
+    {task:"Seated operation with vibration exposure",requirement:"Full shift",priority:"Critical"},
+    {task:"Neck rotation for visibility/reversing",requirement:"Frequent",priority:"Critical"},
+    {task:"Lift maintenance tools",requirement:"15 kg",priority:"Desirable"},
+    {task:"Grip/operate joystick controls",requirement:"Sustained fine motor control",priority:"Important"},
+    {task:"Walk on uneven underground surfaces",requirement:"Moderate distance",priority:"Desirable"},
+  ],
+  "Stope Worker": [
+    {task:"Lift rock/support material floor-to-waist",requirement:"30 kg",priority:"Critical"},
+    {task:"Carry support timber/props",requirement:"25 kg for 20 m",priority:"Critical"},
+    {task:"Crawl/kneel in low stopes",requirement:"Frequent, prolonged",priority:"Critical"},
+    {task:"Overhead work installing support",requirement:"Sustained",priority:"Important"},
+    {task:"Push/pull loaded equipment",requirement:"35 kg force",priority:"Important"},
+    {task:"Climb between working levels",requirement:"Vertical ladderways",priority:"Important"},
+  ],
+  "Rock Drill Operator": [
+    {task:"Hold/operate vibrating drill",requirement:"Sustained, high force",priority:"Critical"},
+    {task:"Lift drill steel/components",requirement:"25 kg",priority:"Critical"},
+    {task:"Repeated overhead and shoulder-height work",requirement:"Frequent",priority:"Critical"},
+    {task:"Squat/kneel to position drill",requirement:"Frequent",priority:"Important"},
+    {task:"Push/pull drill carriage",requirement:"40 kg force",priority:"Critical"},
+    {task:"Stand/brace against vibration for full shift",requirement:"Prolonged",priority:"Important"},
+  ],
+  "Conveyor Surface Operator": [
+    {task:"Walk conveyor lines for inspection",requirement:"Moderate distance, full shift",priority:"Important"},
+    {task:"Lift replacement idlers/parts",requirement:"20 kg",priority:"Important"},
+    {task:"Climb access stairs/platforms",requirement:"Multiple times/shift",priority:"Important"},
+    {task:"Bend/reach to clear blockages",requirement:"Frequent",priority:"Desirable"},
+    {task:"Standing tolerance at control points",requirement:"Prolonged",priority:"Desirable"},
+    {task:"Grip/use hand tools for maintenance",requirement:"Occasional",priority:"Desirable"},
+  ],
+  "Trackless Equipment Operator": [
+    {task:"Climb into/out of cab",requirement:"Repeated",priority:"Critical"},
+    {task:"Seated operation with whole-body vibration",requirement:"Full shift",priority:"Critical"},
+    {task:"Neck/trunk rotation for maneuvering",requirement:"Frequent",priority:"Important"},
+    {task:"Lift coupling/towing equipment",requirement:"20 kg",priority:"Important"},
+    {task:"Sustained pedal/control operation",requirement:"Full shift",priority:"Critical"},
+    {task:"Walk uneven haulage surfaces",requirement:"Moderate",priority:"Desirable"},
+  ],
+  "Maintenance Technician": [
+    {task:"Lift tools/parts floor-to-waist",requirement:"25 kg",priority:"Critical"},
+    {task:"Overhead work on machinery",requirement:"Frequent, sustained",priority:"Critical"},
+    {task:"Kneel/crouch to access low components",requirement:"Frequent",priority:"Important"},
+    {task:"Push/pull with hand tools (torque)",requirement:"30 kg force",priority:"Critical"},
+    {task:"Climb ladders/scaffolding to equipment",requirement:"Up to 15 m",priority:"Important"},
+    {task:"Fine motor grip for precision tasks",requirement:"Sustained",priority:"Important"},
+  ],
+  "Winder Operator": [
+    {task:"Seated console operation with sustained vigilance",requirement:"Full shift",priority:"Critical"},
+    {task:"Fine motor control of winder controls",requirement:"Sustained",priority:"Critical"},
+    {task:"Visual/auditory monitoring of indicators",requirement:"Continuous",priority:"Critical"},
+    {task:"Occasional lifting of logbooks/equipment",requirement:"10 kg",priority:"Desirable"},
+    {task:"Prolonged sitting tolerance",requirement:"Full shift",priority:"Important"},
+    {task:"Rapid reaction to emergency controls",requirement:"As required",priority:"Critical"},
+  ],
+  "Shaft Sinker": [
+    {task:"Lift shaft equipment/support material",requirement:"30-35 kg",priority:"Critical"},
+    {task:"Work at height/in confined shaft bottom",requirement:"Prolonged",priority:"Critical"},
+    {task:"Climb/descend via ladderway or conveyance",requirement:"Repeated, full depth",priority:"Critical"},
+    {task:"Overhead work installing shaft support",requirement:"Sustained",priority:"Critical"},
+    {task:"Push/pull heavy equipment in confined space",requirement:"40 kg force",priority:"Critical"},
+    {task:"Kneel/crouch in restricted working area",requirement:"Frequent",priority:"Important"},
+  ],
+  "Ventilation Officer": [
+    {task:"Walk extended underground circuits for inspection",requirement:"Long distance",priority:"Important"},
+    {task:"Climb ladders/raises to check ventilation points",requirement:"Frequent",priority:"Important"},
+    {task:"Carry monitoring equipment",requirement:"15 kg",priority:"Desirable"},
+    {task:"Crouch/kneel to inspect low ducting",requirement:"Occasional",priority:"Desirable"},
+    {task:"Stand/balance on uneven surfaces",requirement:"Moderate",priority:"Desirable"},
+    {task:"Lift ventilation control components",requirement:"20 kg",priority:"Important"},
+  ],
+};
+function getJobDemands(role) { return JOB_DEMANDS_LIBRARY[role] || []; }
+
 function getQuestions(assessType, step) {
   if(step==="outcomes") return [...ODI_QUESTIONS, ...PROMIS_QUESTIONS];
   if(assessType==="Pre-employment") {
@@ -413,9 +499,10 @@ function TabBar({tabs,active,onChange}) {
 
 function AssessFlow({onSave,savedId}) {
   const [idx,setIdx]=useState(0);
-  const [intake,setIntake]=useState({name:"",empId:"",role:"",age:"",yearsInRole:"",assessType:"",notes:""});
+  const [intake,setIntake]=useState({name:"",empId:"",role:"",age:"",yearsInRole:"",assessType:"",notes:"",siteId:"",shaft:"",department:"",contractor:"",supervisor:""});
   const [scores,setScores]=useState({});
   const [outcomeScores,setOutcomeScores]=useState({});
+  const [movementResult,setMovementResult]=useState(null);
   const ref=useRef(null);
   const scroll=()=>ref.current&&ref.current.scrollIntoView({behavior:"smooth"});
 
@@ -470,7 +557,20 @@ function AssessFlow({onSave,savedId}) {
             <option value="">Select...</option>{opts.map(o=><option key={o}>{o}</option>)}
           </select>
         </div>)}
+        {[["Mine / Site ID","siteId"],["Shaft","shaft"],["Department","department"],["Contractor","contractor"],["Supervisor","supervisor"]].map(([lbl,key])=><div key={key} style={{marginBottom:"0.9rem"}}>
+          <label style={{display:"block",fontSize:"0.75rem",color:C.seam,marginBottom:"0.25rem"}}>{lbl}</label>
+          <input type="text" value={intake[key]} onChange={e=>setIntake({...intake,[key]:e.target.value})} style={{width:"100%",background:C.shaft,border:"1px solid "+C.slate,color:C.day,padding:"0.55rem 0.7rem",fontSize:"0.88rem",fontFamily:font,outline:"none"}}/>
+        </div>)}
       </div>
+      {intake.role&&getJobDemands(intake.role).length>0&&<Card style={{marginBottom:"1rem"}}>
+        <Ey c={C.ore}>Job Demands Profile — {intake.role}</Ey>
+        <div style={{display:"flex",flexDirection:"column",gap:"0.45rem",marginTop:"0.6rem"}}>
+          {getJobDemands(intake.role).map((d,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:"0.8rem",gap:"0.6rem"}}>
+            <span style={{color:C.day}}>{d.task}</span>
+            <span style={{color:C.seam,whiteSpace:"nowrap"}}>{d.requirement} · <span style={{color:d.priority==="Critical"?C.danger:d.priority==="Important"?C.warn:C.bio,fontWeight:700}}>{d.priority}</span></span>
+          </div>)}
+        </div>
+      </Card>}
       {intake.assessType&&tc&&<div style={{marginBottom:"1rem",padding:"0.9rem 1rem",background:tc_color+"12",border:"1px solid "+tc_color+"44",borderLeft:"3px solid "+tc_color}}>
         <div style={{fontWeight:700,color:tc_color,marginBottom:"0.4rem",fontSize:"0.88rem"}}>{tc.icon} {intake.assessType}</div>
         <div style={{fontSize:"0.82rem",color:C.seam,marginBottom:"0.4rem"}}>{tc.purpose}</div>
@@ -490,6 +590,12 @@ function AssessFlow({onSave,savedId}) {
         <Pill text={intake.name} color={tc_color}/><Pill text={intake.role} color={C.seam}/><Pill text={intake.assessType} color={tc_color}/>
       </div>
       <QSet questions={qs} scores={scores} setScores={setScores}/>
+      {(cur==="functional"||cur==="fce")&&<Card style={{marginBottom:"1rem"}}>
+        <Ey c={C.ore}>AI Movement Analysis</Ey>
+        <p style={{fontSize:"0.8rem",color:C.seam,marginBottom:"0.9rem"}}>Record or upload a functional movement (squat, lift, reach) for computer-vision-assisted posture and symmetry scoring.</p>
+        <MovementScreen onResult={setMovementResult}/>
+        {movementResult&&<div style={{marginTop:"0.8rem",fontSize:"0.78rem",color:C.bio}}>✓ Saved — Movement Quality {movementResult.movementQuality}, Symmetry {movementResult.symmetryScore}, Posture {movementResult.postureScore}</div>}
+      </Card>}
       <Card style={{background:C.shaft,borderColor:tc_color+"55",marginBottom:"1rem"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div><Ey c={tc_color}>Section Progress</Ey><div style={{fontSize:"1.4rem",fontWeight:900,color:C.ore,fontFamily:mono}}>{qs.filter(q=>scores[q.id]!==undefined).length} / {qs.length} answered</div></div>
@@ -553,7 +659,7 @@ function AssessFlow({onSave,savedId}) {
           <div style={{display:"flex",justifyContent:"space-between",gap:"0.6rem",flexWrap:"wrap"}}>
             <Btn onClick={back} v="ghost">Back</Btn>
             <div style={{display:"flex",gap:"0.6rem"}}>
-              {!savedId&&<Btn onClick={()=>onSave(intake,scores,risk)} v="ore" size="sm">Save to Registry</Btn>}
+              {!savedId&&<Btn onClick={()=>onSave(intake,scores,risk,outcomeScores,movementResult)} v="ore" size="sm">Save to Registry</Btn>}
               {savedId&&<Pill text="Saved" color={C.bio}/>}
             </div>
           </div>
@@ -608,7 +714,7 @@ function AssessFlow({onSave,savedId}) {
         <div><h2 style={{fontSize:"1.4rem",fontWeight:800,marginBottom:"0.2rem",color:C.day}}>Personalised Recommendations</h2><p style={{color:C.seam,fontSize:"0.85rem"}}>{intake.assessType} · {today}</p></div>
         <div style={{display:"flex",gap:"0.5rem",alignItems:"center",flexWrap:"wrap"}}>
           <Pill text={risk.label+" · "+risk.pct+"%"} color={risk.color}/>
-          {!savedId&&<Btn onClick={()=>onSave(intake,scores,risk)} v="ore" size="sm">Save to Registry</Btn>}
+          {!savedId&&<Btn onClick={()=>onSave(intake,scores,risk,outcomeScores,movementResult)} v="ore" size="sm">Save to Registry</Btn>}
           {savedId&&<Pill text="Saved" color={C.bio}/>}
         </div>
       </div>
@@ -711,7 +817,7 @@ function AssessFlow({onSave,savedId}) {
           <div style={{display:"flex",justifyContent:"space-between",gap:"0.6rem",flexWrap:"wrap"}}>
             <Btn onClick={back} v="ghost">Back</Btn>
             <div style={{display:"flex",gap:"0.6rem"}}>
-              {!savedId&&<Btn onClick={()=>onSave(intake,scores,risk)} v="ore" size="sm">Save to Registry</Btn>}
+              {!savedId&&<Btn onClick={()=>onSave(intake,scores,risk,outcomeScores,movementResult)} v="ore" size="sm">Save to Registry</Btn>}
               {savedId&&<Pill text="Saved" color={C.bio}/>}
             </div>
           </div>
@@ -740,7 +846,7 @@ function ProfileOverview({worker,onUpdate}) {
     <Card>
       <Ey>Worker Details</Ey>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0.6rem"}}>
-        {[["Name",worker.name],["ID",worker.empId],["Role",worker.role],["Age",worker.age],["Yrs in Role",worker.yearsInRole],["Assessment",worker.assessType]].map(([l,v])=><div key={l}>
+        {[["Name",worker.name],["ID",worker.empId],["Role",worker.role],["Age",worker.age],["Yrs in Role",worker.yearsInRole],["Assessment",worker.assessType],["Mine / Site",worker.siteId],["Shaft",worker.shaft],["Department",worker.department],["Contractor",worker.contractor],["Supervisor",worker.supervisor]].filter(([,v])=>v).map(([l,v])=><div key={l}>
           <div style={{fontSize:"0.6rem",color:C.seam,textTransform:"uppercase",letterSpacing:"0.12em",fontFamily:mono}}>{l}</div>
           <div style={{fontSize:"0.86rem",color:C.day,fontWeight:500}}>{v||"—"}</div>
         </div>)}
@@ -1000,10 +1106,13 @@ export default function App() {
     if(saved){setSelected(saved);setWorkers(ws=>ws.map(x=>x.id===saved.id?saved:x));}
   };
 
-  const saveWorker=async(intake,scores,risk)=>{
+  const saveWorker=async(intake,scores,risk,outcomeScores,movementResult)=>{
+    const odi=calcODI(outcomeScores||{});
+    const prom=calcPROMISGlobal(outcomeScores||{});
     const newW={...intake,risk:risk.tier,riskPct:risk.pct,programStarted:false,weeksDone:0,
       fcePending:intake.assessType==="Post-injury / Return to Work"&&risk.tier!=="LOW",
-      fceComplete:false,exerciseChecked:{},consentShared:false};
+      fceComplete:false,exerciseChecked:{},consentShared:false,
+      fceResults:{odi,promisGlobal:prom,movement:movementResult||null}};
     const saved=await createWorker(newW);
     if(saved){setWorkers(ws=>[saved,...ws]);setSavedId(saved.id);
       await saveAssessmentRecord(saved.id,intake.assessType,scores,risk);}
@@ -1060,3 +1169,4 @@ export default function App() {
     <style>{`*{box-sizing:border-box;}body{margin:0;}input:focus,select:focus,textarea:focus{border-color:${C.bio}!important;outline:none;}`}</style>
   </div>;
 }
+
